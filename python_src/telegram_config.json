@@ -1,0 +1,9 @@
+{
+  "token": "1714493541:AAEFfSyQnuGskKbHbWcvOmkb6fL60sJ47J0",
+  "msg_batch_limit": 30,
+  "msg_length_limit": 4096,
+  "use_proxy": false,
+  "proxy_settings": {
+    "proxy_url": "http://username:password@proxy:port"
+  }
+}

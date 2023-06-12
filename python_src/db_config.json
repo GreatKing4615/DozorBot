@@ -1,0 +1,10 @@
+{
+      "addr": "127.0.0.1",
+      "port": 5432,
+      "user": "django",
+      "pasw": "123123",
+      "name": "depo",
+      "logFile": "/var/lib/dozor-net/logs/telegram-bot.log",
+      "logSizeMb": 10,
+      "logRotateCount": 50
+}
