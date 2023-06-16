@@ -110,4 +110,11 @@ public class Repository<TEntity> :IRepository<TEntity> where TEntity : class
     public void Delete(TEntity entity) => _dbSet.Remove(entity);
 
     public void DeleteRange(IEnumerable<TEntity> entities) => _dbSet.RemoveRange(entities);
+
+    public async Task<bool> ExistsAsync(
+        Expression<Func<TEntity, bool>>? selector = null,
+        CancellationToken cancellationToken = default) =>
+        selector is null
+            ? await _dbSet.AnyAsync(cancellationToken)
+            : await _dbSet.AnyAsync(selector, cancellationToken);
 }

@@ -31,4 +31,6 @@ public interface IRepository<TEntity> where TEntity : class
 
     void Delete(TEntity entity);
     void DeleteRange(IEnumerable<TEntity> entities);
+    Task<bool> ExistsAsync(Expression<Func<TEntity, bool>>? selector = null, CancellationToken cancellationToken = default);
+
 }

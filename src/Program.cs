@@ -1,73 +1,65 @@
 ﻿using DozorBot.DAL.UnitOfWork;
 using DozorBot.Infrastructure.Base;
-using DozorBot.Infrastructure.Logging;
 using DozorBot.Services;
 using log4net;
-using log4net.Config;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Telegram.Bot;
-using Telegram.Bot.Polling;
 
-var host = Host.CreateDefaultBuilder(args);
-var configuration = new ConfigurationBuilder()
-    .SetBasePath(Directory.GetCurrentDirectory())
-    .AddJsonFile("appsettings.json")
-    .Build();
-var services = new ServiceCollection();
-// XmlConfigurator.Configure(new FileInfo("log4net.config"));
+class Program
+{
+    static void Main(string[] args)
+    {
+        var host = Host.CreateDefaultBuilder(args);
+        var configuration = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json")
+            .Build();
 
-//depo
-// var depoLoggerRepository = LogManager.GetRepository("DepoLogger");
-// services.AddSingleton(depoLoggerRepository);
-// services.AddScoped<ILog>(_ => new LogWrapper(LogManager.GetLogger("DepoLogger")));
-var depoConnectionString = configuration.GetConnectionString("DepoConnection");
-services.AddDbContext<DepoDbContext>(options =>
-    options.UseNpgsql(depoConnectionString));
-services.AddUnitOfWork<DepoDbContext>();
-var depoBot = new TelegramBotClient(configuration["DepoTelegram:Token"]);
+        var services = new ServiceCollection();
 
-//smd
-// var smdLoggerRepository = LogManager.GetRepository("SmdLogger");
-// services.AddSingleton(smdLoggerRepository);
-// services.AddScoped<ILog>(_ => new LogWrapper(LogManager.GetLogger("SmdLogger")));
-var smdConnectionString = configuration.GetConnectionString("SmdArmConnection");
-services.AddDbContext<SmdDbContext>(options =>
-    options.UseNpgsql(smdConnectionString));
-services.AddUnitOfWork<SmdDbContext>();
-var smdBot = new TelegramBotClient(configuration["SmdTelegram:Token"]);
+        var smdConnectionString = configuration.GetConnectionString("SmdArmConnection");
+        services.AddDbContext<SmdDbContext>(options =>
+            options.UseNpgsql(smdConnectionString));
+        var depoConnectionString = configuration.GetConnectionString("DepoConnection");
+        services.AddDbContext<DepoDbContext>(options =>
+            options.UseNpgsql(depoConnectionString));
+
+        services.AddUnitOfWork<SmdDbContext>();
+        services.AddUnitOfWork<DepoDbContext>();
+
+        var depoBot = new TelegramBotClient(configuration["DepoTelegram:Token"]);
+        var smdBot = new TelegramBotClient(configuration["SmdTelegram:Token"]);
 
 
+        host.ConfigureServices((context, services) =>
+        {
+            services.AddOptions();
+            services.AddLogging();
+            services.AddScoped(_ => LogManager.GetLogger(typeof(BotService)));
+            services.AddSingleton(configuration);
+            services.AddSingleton(depoBot);
+            services.AddSingleton(smdBot);
+            services.AddScoped<IBot, BotService>();
+            services.AddSingleton<ITelegramBotClient>(depoBot);
+            services.AddSingleton<ITelegramBotClient>(smdBot);
+        });
 
-// //running bots
-// var cancellationToken = new CancellationTokenSource().Token;
-// depoBot.StartReceiving(
-//     BotService.HandleUpdateAsync,
-//     BotService.HandleErrorAsync,
-//     new ReceiverOptions
-//     {
-//         AllowedUpdates = { },
-//         Limit = Convert.ToInt32(configuration["DepoTelegram:Limit"]),
-//         Offset = Convert.ToInt32(configuration["DepoTelegram:Offset"])
-//     },
-//     cancellationToken
-// );
-//
-// smdBot.StartReceiving(
-//     BotService.HandleUpdateAsync,
-//     BotService.HandleErrorAsync,
-//     new ReceiverOptions
-//     {
-//         AllowedUpdates = { },
-//         Limit = Convert.ToInt32(configuration["SmdTelegram:Limit"]),
-//         Offset = Convert.ToInt32(configuration["SmdTelegram:Offset"])
-//     },
-//     cancellationToken
-// );
+        var serviceProvider = services.BuildServiceProvider();
+        using (var scope = serviceProvider.CreateScope())
+        {
+            var smdDbContext = scope.ServiceProvider.GetRequiredService<SmdDbContext>();
+            smdDbContext.Database.EnsureCreated();
+            smdDbContext.Database.Migrate();
 
-Console.WriteLine("Press any key to stop");
-// Console.ReadLine();
+            var depoDbContext = scope.ServiceProvider.GetRequiredService<DepoDbContext>();
+            depoDbContext.Database.EnsureCreated();
+            depoDbContext.Database.Migrate();
+        }
 
-host.Build().RunAsync();
+        host.Build().Run();
+        Console.WriteLine("Press any key to stop");
+    }
+}

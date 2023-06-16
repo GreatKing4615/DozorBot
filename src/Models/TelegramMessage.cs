@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace DozorBot.Models;
 
+[Table("telegram_messages")]
 public class TelegramMessage
 {
     [Key]

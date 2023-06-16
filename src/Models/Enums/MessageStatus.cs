@@ -3,5 +3,7 @@
 public enum MessageStatus
 {
     sending,
-    pending
+    pending,
+    error,
+    ok
 }

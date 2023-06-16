@@ -11,6 +11,6 @@ public interface IBot
 
     Task CbNotify();
     Task Error(Update update, Exception error);
-    Task Start(Update update);
+    public Task Start(Update update);
     Task NeedContact(Update update);
 }

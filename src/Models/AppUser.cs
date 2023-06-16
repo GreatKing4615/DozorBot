@@ -4,6 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace DozorBot.Models
 {
+    [Table("app_users")]
     public class AppUser
     {
         [Key]
@@ -48,7 +49,7 @@ namespace DozorBot.Models
         public bool IsBlocked { get; set; } = false;
 
         [Required]
-        [Column("is_blocked")]
+        [Column("is_manual_role_set")]
         public bool IsManualRoleSet { get; set; } = true;
 
         [Required]
