@@ -1,8 +1,8 @@
-﻿using DozorBot.DAL.Contracts;
+﻿using System.Linq.Expressions;
+using DozorBot.DAL.Contracts;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Query;
-using System.Linq.Expressions;
 
 namespace DozorBot.DAL.UnitOfWork;
 
@@ -99,14 +99,20 @@ public sealed class Repository<TEntity> : IRepository<TEntity> where TEntity : c
             : query.Select(selector);
     }
 
-    public Task InsertAsync(IEnumerable<TEntity> entities, CancellationToken cancellationToken = default) =>
-        _dbSet.AddRangeAsync(entities, cancellationToken);
-
     public ValueTask<EntityEntry<TEntity>> InsertAsync(TEntity entity, CancellationToken cancellationToken = default) =>
         _dbSet.AddAsync(entity, cancellationToken);
 
-    public void Update(TEntity entity) => _dbSet.Update(entity);
-
-    public void Delete(TEntity entity) => _dbSet.Remove(entity);
     public void DeleteRange(IEnumerable<TEntity> entities) => _dbSet.RemoveRange(entities);
+
+    public void Update(TEntity entity)
+    {
+        try
+        {
+            _dbSet.Update(entity);
+        }
+        catch (DbUpdateException ex)
+        {
+            throw new Exception($"{ex.InnerException}");
+        }
+    }
 }

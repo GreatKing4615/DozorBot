@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "DozorBot": {
+      "commandName": "Project",
+      "nativeDebugging": true
+    }
+  }
+}

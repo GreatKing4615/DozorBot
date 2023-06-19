@@ -1,16 +1,17 @@
-﻿using DozorBot.Models;
+﻿using System.Reflection;
+using DozorBot.Models;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection;
 
 namespace DozorBot.Infrastructure.Base;
 
-public class DepoDbContext : DbContext
+public class DozorDbContext : DbContext
 {
     public DbSet<TelegramMessage> TgMessages { get; set; }
     public DbSet<AppUser> Users { get; set; }
     public DbSet<AspNetUser> AspNetUsers { get; set; }
+    public DbSet<Setting> Settings { get; set; }
 
-    public DepoDbContext(DbContextOptions<DepoDbContext> options) : base(options)
+    public DozorDbContext(DbContextOptions<DozorDbContext> options) : base(options)
     {
     }
 

@@ -1,5 +1,4 @@
-﻿using System;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace DozorBot.Models
@@ -17,7 +16,7 @@ namespace DozorBot.Models
 
         [Required]
         [Column("create_date")]
-        public DateTime CreateDate { get; set; } = DateTime.Now;
+        public DateTime CreateDate { get; set; } = DateTime.UtcNow;
 
         [Column("update_date")]
         public DateTime? UpdateDate { get; set; }
@@ -31,11 +30,6 @@ namespace DozorBot.Models
         [MaxLength(80)]
         [Column("domain_uid")]
         public string DomainUid { get; set; }
-
-        [Required]
-        [Column("legacy_id")]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int LegacyId { get; set; }
 
         [ForeignKey("legacy_id")]
         public AspNetUser LegacyUser { get; set; }

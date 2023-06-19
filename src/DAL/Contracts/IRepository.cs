@@ -1,6 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore.ChangeTracking;
+﻿using System.Linq.Expressions;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Query;
-using System.Linq.Expressions;
 
 namespace DozorBot.DAL.Contracts;
 
@@ -25,10 +25,7 @@ public interface IRepository<TEntity> where TEntity : class
 
     ValueTask<EntityEntry<TEntity>> InsertAsync(TEntity entity, CancellationToken cancellationToken = default(CancellationToken));
 
-    Task InsertAsync(IEnumerable<TEntity> entities, CancellationToken cancellationToken = default(CancellationToken));
-
     void Update(TEntity entity);
 
-    void Delete(TEntity entity);
     void DeleteRange(IEnumerable<TEntity> entities);
 }

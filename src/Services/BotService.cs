@@ -1,14 +1,15 @@
 ﻿using DozorBot.DAL.Contracts;
+using DozorBot.Infrastructure.Base;
 using DozorBot.Models;
 using log4net;
-using log4net.Config;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
+using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
-using Update = Telegram.Bot.Types.Update;
 
 namespace DozorBot.Services;
 
@@ -16,38 +17,25 @@ public class BotService : IBot
 {
     private const string Start = "/start";
     private readonly ILog _log;
-    private readonly IRepository<TelegramMessage> _messageRepository;
-    private readonly IRepository<Setting> _settingRepository;
-    private readonly IRepository<AppUser> _userRepository;
     private readonly ITelegramBotClient _botClient;
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly string _botName;
-    private NotificationBotConfig BotConfig { get; set; }
+    private readonly IUnitOfWork<DozorDbContext> _unitOfWork;
 
-    public BotService(ILog log, ITelegramBotClient botClient, IUnitOfWork unitOfWork)
+    public BotService(ILog log, ITelegramBotClient botClient, IUnitOfWork<DozorDbContext> unitOfWork)
     {
         _log = log;
         _botClient = botClient;
         _unitOfWork = unitOfWork;
-        _messageRepository = unitOfWork.GetRepository<TelegramMessage>();
-        _settingRepository = unitOfWork.GetRepository<Setting>();
-        _userRepository = unitOfWork.GetRepository<AppUser>();
-        _botName = _botClient.GetMeAsync().Result.FirstName;
         _botClient.StartReceiving(
             HandleUpdateAsync,
             HandleErrorAsync,
-            new ReceiverOptions
-            {
-                AllowedUpdates = { }, // receive all update types
-            },
+            new ReceiverOptions(),
             cancellationToken: default);
-        _log.Info($"{_botName} are ready");
+        _log.Info($"{nameof(BotService)} are ready");
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
     {
-        Console.WriteLine(Newtonsoft.Json.JsonConvert.SerializeObject(update));
-        if (update.Type == Telegram.Bot.Types.Enums.UpdateType.Message)
+        if (update.Type == UpdateType.Message)
         {
             var message = update.Message;
             if (message?.Text?.ToLower() == Start)
@@ -62,7 +50,7 @@ public class BotService : IBot
 
     public Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
     {
-        _log.Error($"{_botName}: {JsonSerializer.Serialize(exception)}");
+        _log.Error($"{nameof(BotService)}: {JsonSerializer.Serialize(exception)}");
         return Task.CompletedTask;
     }
 
@@ -82,20 +70,20 @@ public class BotService : IBot
             && update.Message?.Chat.Id != default)
         {
             var cleanPhone = Regex.Replace(userPhone, @"[^\d]", "");
-            var user = await _userRepository.SingleOrDefault(
+            var user = await _unitOfWork.GetRepository<AppUser>().SingleOrDefault(
                 selector: x => new { x.Id, x.LegacyUser.UserName, x.LegacyUser.PhoneNumber, x.TelegramUserId },
                 predicate: x => x.LegacyUser.PhoneNumber == cleanPhone,
                 include: i => i.Include(x => x.LegacyUser));
             if (user == null)
             {
-                var existedUser = await _userRepository.SingleOrDefault(
+                var existedUser = await _unitOfWork.GetRepository<AppUser>().SingleOrDefault(
                      selector: x => x,
                      predicate: x => x.LegacyUser.PhoneNumber == cleanPhone,
                      include: i => i.Include(x => x.LegacyUser));
                 if (existedUser != null)
                 {
                     existedUser.TelegramUserId = update.Message?.Contact?.UserId;
-                    _userRepository.Update(existedUser);
+                    _unitOfWork.GetRepository<AppUser>().Update(existedUser);
                     await _unitOfWork.SaveChangesAsync();
                     _log.Info($"Store telegram_id {existedUser.TelegramUserId} for user {existedUser.Name} ");
                 }
@@ -128,14 +116,14 @@ public class BotService : IBot
     public async Task Idle(Update update)
     {
         var chatId = update.Message?.Chat.Id;
-        var user = await _userRepository.SingleOrDefault(
-            selector: x => x.LegacyUser.UserName,
+        var user = await _unitOfWork.GetRepository<AppUser>().SingleOrDefault(
+            selector: x => x,
             predicate: x => x.TelegramUserId == chatId,
             include: i => i.Include(x => x.LegacyUser));
         if (user != null)
         {
             await _botClient.SendTextMessageAsync(chatId, "Your contact info was stored, just wait for notifications!");
-            _log.Info($"Contact already exists for user {user}");
+            _log.Info($"Contact already exists for user {user.TelegramUserId}");
         }
         else
         {

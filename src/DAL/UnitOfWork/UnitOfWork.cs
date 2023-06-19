@@ -9,12 +9,12 @@ public sealed class UnitOfWork<TContext> : IRepositoryFactory, IUnitOfWork<TCont
     private bool _disposed;
     private Dictionary<Type, object>? _repositories;
     public TContext DbContext { get; }
-    
+
     public UnitOfWork(TContext context)
     {
         DbContext = context ?? throw new ArgumentNullException(nameof(context));
     }
-    
+
     public IRepository<TEntity> GetRepository<TEntity>() where TEntity : class
     {
         _repositories ??= new Dictionary<Type, object>();
@@ -28,7 +28,17 @@ public sealed class UnitOfWork<TContext> : IRepositoryFactory, IUnitOfWork<TCont
         return (IRepository<TEntity>)_repositories[type];
     }
 
-    public async Task<int> SaveChangesAsync(CancellationToken token = default) => await DbContext.SaveChangesAsync(token);
+    public async Task<int> SaveChangesAsync(CancellationToken token = default)
+    {
+        try
+        {
+            return await DbContext.SaveChangesAsync(token);
+        }
+        catch (Exception e)
+        {
+            throw new Exception("Error while saving changes", e.InnerException);
+        }
+    }
 
     public void Dispose()
     {

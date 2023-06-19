@@ -1,5 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Metadata.Internal;
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace DozorBot.Models;
@@ -10,10 +9,6 @@ public class TelegramMessage
     [Key]
     [Column("id")]
     public int Id { get; set; }
-
-    [Required]
-    [Column("user_id")]
-    public int UserId { get; set; }
 
     [Required]
     [ForeignKey("user_id")]
@@ -29,11 +24,11 @@ public class TelegramMessage
     [Column("status")]
     public string Status { get; set; }
 
-    [MaxLength(128)]
+    [MaxLength]
     [Column("additional")]
     public string Additional { get; set; }
 
     [Required]
-    [Column(name: "create_date", TypeName = "timestamp with time zone")]
-    public DateTime CreateDate { get; set; }= DateTime.Now;
+    [Column(name: "create_date", TypeName = "timestamp without time zone")]
+    public DateTime CreateDate { get; set; } = DateTime.UtcNow;
 }

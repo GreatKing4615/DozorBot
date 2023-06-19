@@ -4,6 +4,7 @@ using DozorBot.Infrastructure.Base;
 using DozorBot.Models;
 using DozorBot.Services;
 using log4net;
+using log4net.Config;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,7 +12,8 @@ using Microsoft.Extensions.Hosting;
 using Quartz;
 using Quartz.Impl;
 using Telegram.Bot;
-[assembly: log4net.Config.XmlConfigurator(ConfigFile = "log4net.config", Watch = true)]
+
+[assembly: XmlConfigurator(Watch = true)]
 
 class Program
 {
@@ -25,7 +27,7 @@ class Program
 
         var services = new ServiceCollection();
         var botConfig = new NotificationBotConfig();
-        botConfig.Token = configuration["SmdTelegram:Token"] ?? botConfig.Token;
+        botConfig.Token = configuration["Config:Token"] ?? throw new ArgumentNullException(Constants.TOKEN_IS_NULL);
         if (int.TryParse(configuration["Config:MsgBatchLimit"], out var batchLimit))
             botConfig.MsgBatchLimit = batchLimit;
         if (int.TryParse(configuration["Config:MsgLengthLimit"], out var lengthLimit))
@@ -34,52 +36,57 @@ class Program
             botConfig.StoreMessagesPeriod = storePeriod;
         if (int.TryParse(configuration["Config:SendingPeriod"], out var sendingPeriod))
             botConfig.SendingPeriod = sendingPeriod;
-        
-        var smdConnectionString = configuration.GetConnectionString("SmdArmConnection");
-        services.AddDbContext<SmdDbContext>(options =>
+
+        var smdConnectionString = configuration.GetConnectionString("DatabaseConnection");
+        services.AddDbContext<DozorDbContext>(options =>
             options.UseNpgsql(smdConnectionString));
 
-        services.AddUnitOfWork<SmdDbContext>();
-        var smdBot = new TelegramBotClient(configuration["SmdTelegram:Token"]);
+        services.AddUnitOfWork<DozorDbContext>();
+        var smdBot = new TelegramBotClient(botConfig.Token);
 
 
         host.ConfigureServices((context, services) =>
         {
             services.AddOptions();
-            LoggingConfig.ConfigureLogging(services);
         });
-        
 
-        var serviceProvider = services.BuildServiceProvider();
-        using (var scope = serviceProvider.CreateScope())
-        {
-            var smdDbContext = scope.ServiceProvider.GetRequiredService<SmdDbContext>();
-            await smdDbContext.Database.EnsureCreatedAsync();
-            await smdDbContext.Database.MigrateAsync();
-            var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork<SmdDbContext>>();
-            var log = scope.ServiceProvider.GetRequiredService<ILog>();
-            new BotService(log, smdBot, unitOfWork);
-        }
-        
-        await StartSendingMessages(configuration, serviceProvider, smdBot);
+
+        await using var serviceProvider = services.BuildServiceProvider();
+
+        var dozorDbContext = serviceProvider.GetRequiredService<DozorDbContext>();
+        await dozorDbContext.Database.EnsureCreatedAsync();
+        await dozorDbContext.Database.MigrateAsync();
+
+        XmlConfigurator.ConfigureAndWatch(new FileInfo("log4net.config"));
+        var log = LogManager.GetLogger(typeof(Program));
+        services.AddSingleton(log);
+
+        var unitOfWork = serviceProvider.GetRequiredService<IUnitOfWork<DozorDbContext>>();
+
+        var jobDataMap = new JobDataMap();
+        jobDataMap.Put("UnitOfWork", unitOfWork);
+        jobDataMap.Put("BotClient", smdBot);
+        jobDataMap.Put("Log", log);
+        jobDataMap.Put("BotConfig", botConfig);
+
+        new BotService(log, smdBot, unitOfWork);
+        await StartSendingMessages(configuration, jobDataMap);
+
         await host.Build().RunAsync();
         Console.WriteLine("Press any key to stop");
     }
 
-    private static async Task StartSendingMessages(IConfigurationRoot configuration, ServiceProvider serviceProvider, ITelegramBotClient smdBot)
+    private static async Task StartSendingMessages(
+        IConfiguration configuration,
+        JobDataMap dataMap)
     {
         var _scheduler = await StdSchedulerFactory.GetDefaultScheduler();
         var notifyCron = configuration["NotifyCron"] ?? "0 0/5 * 1/1 * ? *"; //default value - every 5 minute
         await _scheduler.Start();
 
-        var jobDataMap = new JobDataMap();
-        jobDataMap.Put("UnitOfWork", serviceProvider.GetRequiredService<IUnitOfWork<SmdDbContext>>()); // Передача UnitOfWork в JobDataMap
-        jobDataMap.Put("BotClient", smdBot); // Передача UnitOfWork в JobDataMap
-        jobDataMap.Put("Log", serviceProvider.GetRequiredService<ILog>()); // Передача UnitOfWork в JobDataMap
-
-
         var job = JobBuilder.Create<MessageSenderJob>()
             .WithIdentity("messageSenderJob", "group")
+            .UsingJobData(dataMap)
             .Build();
 
         var trigger = TriggerBuilder.Create()
