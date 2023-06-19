@@ -24,6 +24,7 @@ public class BotService : IBot
     {
         _log = log;
         _botClient = botClient;
+        HealthCheck();
         _unitOfWork = unitOfWork;
         _botClient.StartReceiving(
             HandleUpdateAsync,
@@ -31,6 +32,20 @@ public class BotService : IBot
             new ReceiverOptions(),
             cancellationToken: default);
         _log.Info($"{nameof(BotService)} are ready");
+    }
+
+    private void HealthCheck()
+    {
+        try
+        {
+            var healthCheck = Task.Run(async () => await _botClient.TestApiAsync()).Result;
+            if (!healthCheck)
+                throw new ApplicationException("Bot are not available");
+        }
+        catch (Exception e)
+        {
+            throw new ApplicationException("Bot are not available ");
+        }
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
