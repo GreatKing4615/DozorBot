@@ -1,4 +1,5 @@
-﻿using DozorBot.DAL.Contracts;
+﻿using System.Text.Json;
+using DozorBot.DAL.Contracts;
 using DozorBot.DAL.UnitOfWork;
 using DozorBot.Infrastructure.Base;
 using DozorBot.Models;
@@ -15,6 +16,8 @@ using Telegram.Bot;
 
 [assembly: XmlConfigurator(Watch = true)]
 
+namespace DozorBot;
+
 class Program
 {
     static async Task Main(string[] args)
@@ -26,42 +29,29 @@ class Program
             .Build();
 
         var services = new ServiceCollection();
-        var botConfig = new NotificationBotConfig();
-        botConfig.Token = configuration["Config:Token"] ?? throw new ArgumentNullException(Constants.TOKEN_IS_NULL);
-        if (int.TryParse(configuration["Config:MsgBatchLimit"], out var batchLimit))
-            botConfig.MsgBatchLimit = batchLimit;
-        if (int.TryParse(configuration["Config:MsgLengthLimit"], out var lengthLimit))
-            botConfig.MsgLengthLimit = lengthLimit;
-        if (int.TryParse(configuration["Config:StoreMessagesPeriod"], out var storePeriod))
-            botConfig.StoreMessagesPeriod = storePeriod;
-        if (int.TryParse(configuration["Config:SendingPeriod"], out var sendingPeriod))
-            botConfig.SendingPeriod = sendingPeriod;
-
         var smdConnectionString = configuration.GetConnectionString("DatabaseConnection");
         services.AddDbContext<DozorDbContext>(options =>
             options.UseNpgsql(smdConnectionString));
 
         services.AddUnitOfWork<DozorDbContext>();
-        var smdBot = new TelegramBotClient(botConfig.Token);
-
 
         host.ConfigureServices((context, services) =>
         {
             services.AddOptions();
+            services.AddSingleton(configuration);
         });
 
 
         await using var serviceProvider = services.BuildServiceProvider();
-
-        var dozorDbContext = serviceProvider.GetRequiredService<DozorDbContext>();
-        await dozorDbContext.Database.EnsureCreatedAsync();
-        await dozorDbContext.Database.MigrateAsync();
-
         XmlConfigurator.ConfigureAndWatch(new FileInfo("log4net.config"));
         var log = LogManager.GetLogger(typeof(Program));
         services.AddSingleton(log);
 
         var unitOfWork = serviceProvider.GetRequiredService<IUnitOfWork<DozorDbContext>>();
+        var botConfig = configuration.GetSection("Config") as NotificationBotConfig;
+        await SetConfigToDb(botConfig, log, unitOfWork);
+
+        var smdBot = await TelegramBot.GetInstance(unitOfWork, log);
 
         var jobDataMap = new JobDataMap();
         jobDataMap.Put("UnitOfWork", unitOfWork);
@@ -69,11 +59,32 @@ class Program
         jobDataMap.Put("Log", log);
         jobDataMap.Put("BotConfig", botConfig);
 
-        new BotService(log, smdBot, unitOfWork);
         await StartSendingMessages(configuration, jobDataMap);
+        var botService = new BotService(log, unitOfWork);
+        await botService.StartListening(new CancellationToken());
 
         await host.Build().RunAsync();
         Console.WriteLine("Press any key to stop");
+    }
+
+    private static async Task SetConfigToDb(NotificationBotConfig config, ILog log, IUnitOfWork<DozorDbContext> unitOfWork)
+    {
+        if (config == null)
+        {
+            log.Info($"{nameof(TelegramBot)}: doesn't have config. Will be use default config");
+            return;
+        }
+
+        var configStr = await unitOfWork.GetRepository<Setting>().SingleOrDefault(
+            selector: x => x,
+            predicate: x => x.Key == Constants.TELEGRAM_BOT_SETTINGS_KEY
+        );
+        if (!string.IsNullOrEmpty(configStr.Value))
+            config.Token = JsonSerializer.Deserialize<NotificationBotConfig>(configStr.Value)?.Token;
+
+        log.Info($"{nameof(TelegramBot)}: set config (without token) in db");
+        configStr.Value = JsonSerializer.Serialize(config);
+        unitOfWork.GetRepository<Setting>().Update(configStr);
     }
 
     private static async Task StartSendingMessages(
@@ -92,7 +103,7 @@ class Program
         var trigger = TriggerBuilder.Create()
             .WithIdentity("messageSenderTrigger", "group")
             .WithCronSchedule(notifyCron)
-        .Build();
+            .Build();
 
         await _scheduler.ScheduleJob(job, trigger);
     }

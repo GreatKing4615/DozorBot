@@ -17,35 +17,25 @@ public class BotService : IBot
 {
     private const string Start = "/start";
     private readonly ILog _log;
-    private readonly ITelegramBotClient _botClient;
+    private ITelegramBotClient _botClient;
     private readonly IUnitOfWork<DozorDbContext> _unitOfWork;
 
-    public BotService(ILog log, ITelegramBotClient botClient, IUnitOfWork<DozorDbContext> unitOfWork)
+    public BotService(ILog log, IUnitOfWork<DozorDbContext> unitOfWork)
     {
         _log = log;
-        _botClient = botClient;
-        HealthCheck();
         _unitOfWork = unitOfWork;
+        _log.Info($"{nameof(BotService)} are ready");
+    }
+
+    public async Task StartListening(CancellationToken token)
+    {
+        _botClient = await TelegramBot.GetInstance(_unitOfWork, _log);
         _botClient.StartReceiving(
             HandleUpdateAsync,
             HandleErrorAsync,
             new ReceiverOptions(),
             cancellationToken: default);
-        _log.Info($"{nameof(BotService)} are ready");
-    }
-
-    private void HealthCheck()
-    {
-        try
-        {
-            var healthCheck = Task.Run(async () => await _botClient.TestApiAsync()).Result;
-            if (!healthCheck)
-                throw new ApplicationException("Bot are not available");
-        }
-        catch (Exception e)
-        {
-            throw new ApplicationException("Bot are not available ");
-        }
+        _log.Info($"{nameof(BotService)} start listening");
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
