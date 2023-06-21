@@ -36,6 +36,12 @@ public class BotService : IBot
             new ReceiverOptions(),
             cancellationToken: default);
         _log.Info($"{nameof(BotService)} start listening");
+
+        while (true)
+        {
+            _botClient = await TelegramBot.GetInstance(_unitOfWork, _log);
+            await Task.Delay(60*1000, token); 
+        }
     }
 
     public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
@@ -55,7 +61,7 @@ public class BotService : IBot
 
     public Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
     {
-        _log.Error($"{nameof(BotService)}: {JsonSerializer.Serialize(exception)}");
+        _log.Error($"{nameof(BotService)}: {JsonSerializer.Serialize(exception.Message)}");
         return Task.CompletedTask;
     }
 

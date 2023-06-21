@@ -9,7 +9,7 @@ public class DozorDbContext : DbContext
     public DbSet<TelegramMessage> TgMessages { get; set; }
     public DbSet<AppUser> Users { get; set; }
     public DbSet<AspNetUser> AspNetUsers { get; set; }
-    public DbSet<Setting> Settings { get; set; }
+    public DbSet<Settings> Settings { get; set; }
 
     public DozorDbContext(DbContextOptions<DozorDbContext> options) : base(options)
     {

@@ -53,7 +53,7 @@ public sealed class Repository<TEntity> : IRepository<TEntity> where TEntity : c
         {
             query = query.IgnoreAutoIncludes();
         }
-
+        
         return orderBy is not null
             ? await orderBy(query).Select(selector).FirstOrDefaultAsync(token)
             : await query.Select(selector).FirstOrDefaultAsync(token);

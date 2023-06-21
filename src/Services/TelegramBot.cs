@@ -36,7 +36,7 @@ public class TelegramBot
 
     public static async Task<NotificationBotConfig?> GetConfigFromDb()
     {
-        var configStr = await _unitOfWork.GetRepository<Setting>().SingleOrDefault(
+        var configStr = await _unitOfWork.GetRepository<Settings>().SingleOrDefault(
             selector: x => x.Value,
             predicate: x => x.Key == Constants.TELEGRAM_BOT_SETTINGS_KEY
         );

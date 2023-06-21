@@ -75,7 +75,7 @@ class Program
             return;
         }
 
-        var configStr = await unitOfWork.GetRepository<Setting>().SingleOrDefault(
+        var configStr = await unitOfWork.GetRepository<Settings>().SingleOrDefault(
             selector: x => x,
             predicate: x => x.Key == Constants.TELEGRAM_BOT_SETTINGS_KEY
         );
@@ -84,7 +84,7 @@ class Program
 
         log.Info($"{nameof(TelegramBot)}: set config (without token) in db");
         configStr.Value = JsonSerializer.Serialize(config);
-        unitOfWork.GetRepository<Setting>().Update(configStr);
+        unitOfWork.GetRepository<Settings>().Update(configStr);
     }
 
     private static async Task StartSendingMessages(

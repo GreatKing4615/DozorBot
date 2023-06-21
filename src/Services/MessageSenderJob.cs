@@ -26,6 +26,7 @@ public class MessageSenderJob : IJob
         _log = (ILog)dataMap.Get("Log");
 
         _botClient = await TelegramBot.GetInstance(_unitOfWork, _log);
+        BotConfig = await TelegramBot.GetConfigFromDb(); 
         _botName = (await _botClient.GetMyNameAsync()).Name;
         await CbNotify();
     }
@@ -46,7 +47,7 @@ public class MessageSenderJob : IJob
                 {
                     await _botClient.SendTextMessageAsync(msg.User.TelegramUserId, msg.TelegramMessage.Text);
                     var messageToUpdate = await _unitOfWork.GetRepository<TelegramMessage>().SingleOrDefault(selector: x => x,
-                        predicate: x => x.Id == msg.TelegramMessage.Id);
+                        predicate: x => x.Id.ToString() == msg.TelegramMessage.Id.ToString());
                     messageToUpdate.Status = MessageStatus.ok.ToString();
                     _unitOfWork.GetRepository<TelegramMessage>().Update(messageToUpdate);
                     _log.Info(
@@ -63,6 +64,7 @@ public class MessageSenderJob : IJob
 
         await _unitOfWork.SaveChangesAsync();
     }
+
     public void DeleteOldMessages(int ageHours)
     {
         if (ageHours <= 0) // disable deleting if ageHours < 0
