@@ -7,9 +7,11 @@ public class Settings
 {
     [Key]
     [MaxLength(255)]
+    [Column("key")]
     public string Key { get; set; }
 
     [Required]
     [MaxLength(512)]
+    [Column("value")]
     public string Value { get; set; }
 }

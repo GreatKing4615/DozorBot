@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using DozorBot.DAL.Contracts;
+﻿using DozorBot.DAL.Contracts;
 using DozorBot.Infrastructure.Base;
 using DozorBot.Models;
 using DozorBot.Models.Enums;
@@ -7,7 +6,6 @@ using log4net;
 using Microsoft.EntityFrameworkCore;
 using Quartz;
 using Telegram.Bot;
-using Telegram.Bot.Types;
 
 namespace DozorBot.Services;
 
@@ -36,7 +34,8 @@ public class MessageSenderJob : IJob
         var messages = await _unitOfWork.GetRepository<TelegramMessage>().GetAll(
             selector: x => new { TelegramMessage = x, x.User },
             predicate: x => x.Status == MessageStatus.sending.ToString(),
-            include: i => i.Include(x => x.User).ThenInclude(x => x.LegacyUser)).ToListAsync();
+            include: i => i.Include(x => x.User).ThenInclude(x=>x.LegacyUser)).ToListAsync();
+
 
         DeleteOldMessages(BotConfig.StoreMessagesPeriod);
         foreach (var msg in messages)

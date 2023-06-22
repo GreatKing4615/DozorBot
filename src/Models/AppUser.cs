@@ -31,7 +31,10 @@ namespace DozorBot.Models
         [Column("domain_uid")]
         public string DomainUid { get; set; }
 
-        [ForeignKey("legacy_id")]
+        [Column("legacy_id")]
+        public int LegacyUserId { get; set; }
+
+        [ForeignKey("LegacyUserId")]
         public AspNetUser LegacyUser { get; set; }
 
         [Required]

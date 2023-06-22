@@ -24,8 +24,8 @@ public class TelegramBot
         var config = await GetConfigFromDb();
         if (_instance == null)
             _instance = new TelegramBotClient(config.Token);
-        
-        while (await ValidateToken(config) == false)
+
+        while (await ValidateToken() == false)
         {
             var delaySec = 60 * 1000; // by default 1 min
             _log.Warn($"{nameof(TelegramBot)}: delay {delaySec} sec");
@@ -43,32 +43,31 @@ public class TelegramBot
 
         if (configStr == null)
         {
-            _log.Error($"{nameof(TelegramBot)}: doesn't have setting in db");
-            return null;
+            _log.Warn($"{nameof(TelegramBot)}: doesn't have setting in db. Config will save from appsettings");
+            var defaultConfig = new NotificationBotConfig();
+            await _unitOfWork.GetRepository<Settings>().InsertAsync(new Settings
+            {
+                Key = Constants.TELEGRAM_BOT_SETTINGS_KEY,
+                Value = JsonSerializer.Serialize(defaultConfig)
+            });
+            await _unitOfWork.SaveChangesAsync();
+            return defaultConfig;
         }
 
         var configFromDb = JsonSerializer.Deserialize<NotificationBotConfig>(configStr) ??
                            throw new JsonException($"{nameof(TelegramBot)}: can't convert json string");
 
+        while (string.IsNullOrEmpty(configFromDb.Token))
+        {
+            var delaySec = 60 * 1000; // by default 1 min
+            _log.Warn($"{nameof(TelegramBot)}: didn't find token in config. delay {delaySec} sec");
+            await Task.Delay(delaySec);
+        }
         return configFromDb;
     }
 
-    private static async Task<bool> ValidateToken(NotificationBotConfig config)
+    private static async Task<bool> ValidateToken()
     {
-        if (config == null)
-        {
-            var error = $"{nameof(TelegramBot)}: doesn't have config in config";
-            _log.Error(error);
-            return false;
-        }
-
-        if (string.IsNullOrEmpty(config.Token))
-        {
-            var error = $"{nameof(TelegramBot)}: doesn't have token in config";
-            _log.Error(error);
-            return false;
-        }
-
         try
         {
             await _instance.TestApiAsync();
