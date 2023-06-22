@@ -15,7 +15,7 @@ INSERT INTO PUBLIC.ASPNET_USERS(ID,
 	SECURITY_STAMP,
 	TWO_FACTOR_ENABLED,
 	CONCURRENCY_STAMP)
-VALUES (1,
+VALUES (2,
 		'vitas',
 		'VITAS',
 		'test@mail.ru', 
@@ -46,10 +46,10 @@ VALUES (1,
 																				IS_MANUAL_ROLE_SET,
 																				IS_AUTOCREATED,
 																				GUID)
-VALUES ('1', 'vitas', now()::date, now()::date, 754284879, 1, '1','1',FALSE, FALSE, FALSE, FALSE, '85520084-a78c-4724-9e78-17a589d60c11');
+VALUES ('2', 'vitas', now()::date, now()::date, 754284879, 2, '2','2',FALSE, FALSE, FALSE, FALSE, '85520084-a78c-4724-9e78-17a589d60c12');
 
 
 
 	   INSERT INTO public.telegram_messages(
 	id, user_id, text, status, additional, create_date)
-	VALUES (2, 1,'test2', 'sending', 'test', now()::date);
+	VALUES (2, 2,'test2', 'sending', 'test', now()::date);
