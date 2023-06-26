@@ -15,7 +15,7 @@ namespace DozorBot.Models
         public string Name { get; set; }
 
         [Required]
-        [Column("create_date")]
+        [Column(name: "create_date", TypeName = "timestamp with time zone")]
         public DateTime CreateDate { get; set; } = DateTime.UtcNow;
 
         [Column("update_date")]

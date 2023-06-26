@@ -70,7 +70,7 @@ public class MessageSenderJob : IJob
             _log.Info($"{_botName}: Store period expired for 0 message(s) Deleted. AgeHours = {ageHours}");
         var oldMessages = _unitOfWork.GetRepository<TelegramMessage>().GetAll(
             selector: x => x,
-            predicate: x => x.CreateDate < (DateTime.Now - TimeSpan.FromHours(ageHours))
+            predicate: x => x.CreateDate < (DateTime.UtcNow - TimeSpan.FromHours(ageHours))
         ).ToList();
         _unitOfWork.GetRepository<TelegramMessage>().DeleteRange(oldMessages);
         _log.Info($"{_botName}: Store period expired for {oldMessages.Count} message(s) Deleted. AgeHours = {ageHours}");
