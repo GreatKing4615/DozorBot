@@ -29,7 +29,7 @@ namespace DozorBot.Models
 
         [MaxLength(80)]
         [Column("domain_uid")]
-        public string DomainUid { get; set; }
+        public string? DomainUid { get; set; }
 
         [Column("legacy_id")]
         public int LegacyUserId { get; set; }

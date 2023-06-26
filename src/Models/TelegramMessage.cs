@@ -11,7 +11,9 @@ public class TelegramMessage
     public int Id { get; set; }
 
     [Required]
-    [ForeignKey("user_id")]
+    [Column("user_id")]
+    public int UserId { get; set; }
+       
     public AppUser User { get; set; }
 
     [Required]
@@ -24,9 +26,9 @@ public class TelegramMessage
     [Column("status")]
     public string Status { get; set; }
 
-    [MaxLength]
     [Column("additional")]
-    public string Additional { get; set; }
+    [MaxLength(128)]
+    public string? Additional { get; set; }
 
     [Required]
     [Column(name: "create_date", TypeName = "timestamp without time zone")]

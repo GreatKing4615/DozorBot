@@ -26,5 +26,12 @@ public sealed class DozorDbContext : DbContext
             .HasForeignKey(u => u.Id)
             .HasConstraintName("fk_aspnet_users_id")
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<TelegramMessage>()
+            .HasOne(u => u.User)
+            .WithMany()
+            .HasPrincipalKey(u => u.LegacyUserId)
+            .HasForeignKey(t => t.UserId);
+
     }
 }
