@@ -15,7 +15,6 @@ namespace DozorBot.Services;
 
 public class BotService : IBot
 {
-    private const string Start = "/start";
     private readonly ILog _log;
     private ITelegramBotClient _botClient;
     private readonly IUnitOfWork<DozorDbContext> _unitOfWork;
@@ -40,21 +39,15 @@ public class BotService : IBot
         while (true)
         {
             _botClient = await TelegramBot.GetInstance(_unitOfWork, _log);
-            await Task.Delay(60*1000, token); 
+            await Task.Delay(60 * 1000, token);
         }
     }
 
-    public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
+    public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update,
+        CancellationToken cancellationToken)
     {
         if (update.Type == UpdateType.Message)
         {
-            var message = update.Message;
-            if (message?.Text?.ToLower() == Start)
-            {
-                await botClient.SendTextMessageAsync(message.Chat, "Dozor bot are enabled!",
-                    cancellationToken: cancellationToken);
-                return;
-            }
             await Idle(update);
         }
     }
@@ -67,61 +60,54 @@ public class BotService : IBot
 
     public async Task NeedContact(Update update)
     {
-        var userPhone = update.Message?.Contact?.PhoneNumber;
-        const string text = "Bot needs your contact info to operate.";
-        var failMsg = string.Empty;
-        var buttons = new[]
-        {
-            new KeyboardButton("My phone number") { RequestContact = true },
-            "Cancel"
-        };
+        string failMsg = "Bot needs your contact info to operate.";
+        var message = update?.Message;
 
-
-        if (!string.IsNullOrEmpty(userPhone)
-            && update.Message?.Chat.Id != default)
+        //проверка контакта
+        if (message.Contact == null)
         {
-            var cleanPhone = Regex.Replace(userPhone, @"[^\d]", "");
-            var user = await _unitOfWork.GetRepository<AppUser>().SingleOrDefault(
-                selector: x => new { x.Id, x.LegacyUser.UserName, x.LegacyUser.PhoneNumber, x.TelegramUserId },
-                predicate: x => x.LegacyUser.PhoneNumber == cleanPhone,
-                include: i => i.Include(x => x.LegacyUser));
-            if (user == null)
-            {
-                var existedUser = await _unitOfWork.GetRepository<AppUser>().SingleOrDefault(
-                     selector: x => x,
-                     predicate: x => x.LegacyUser.PhoneNumber == cleanPhone,
-                     include: i => i.Include(x => x.LegacyUser));
-                if (existedUser != null)
-                {
-                    existedUser.TelegramUserId = update.Message?.Contact?.UserId;
-                    _unitOfWork.GetRepository<AppUser>().Update(existedUser);
-                    await _unitOfWork.SaveChangesAsync();
-                    _log.Info($"Store telegram_id {existedUser.TelegramUserId} for user {existedUser.Name} ");
-                }
-                else
-                {
-                    failMsg = "You are not permitted to use this bot!";
-                    _log.Warn($"Reject for unknown phone {userPhone}");
-                }
-            }
-            else
-            {
-                failMsg = "It is not your contact!";
-                _log.Warn($"It is not your contact! for {userPhone}");
-            }
+            await ReturnAnswer(update, failMsg);
+            return;
         }
-        else
+
+        var userPhone = message.Contact?.PhoneNumber;
+        //проверка наличия номера
+        if (userPhone == null)
         {
             failMsg = "There is no phone number!";
-            _log.Warn($"There is no phone number! for {userPhone}");
+            await ReturnAnswer(update, failMsg);
+            return;
+
         }
 
-        var fulltext = $"{failMsg}\r\n{text}";
-        await _botClient.SendTextMessageAsync(
-            chatId: update.Message!.Chat.Id,
-            text: fulltext,
-            replyMarkup: new ReplyKeyboardMarkup(buttons)
-        );
+        var cleanPhone = Regex.Replace(userPhone, @"[^\d]", "");
+        var userByPhone = await _unitOfWork.GetRepository<AppUser>().SingleOrDefault(
+            selector: x => x,
+            predicate: x => x.LegacyUser.PhoneNumber == cleanPhone,
+            include: i => i.Include(x => x.LegacyUser));
+
+        //проверка пользователя
+        if (userByPhone == null)
+        {
+            failMsg = "You are not permitted to use this bot!";
+            _log.Info($"Reject for unknown phone {message.Contact.PhoneNumber}");
+            await ReturnAnswer(update, failMsg);
+            return;
+        }
+
+        //проверка аккаунта пользователя
+        if (userByPhone.TelegramUserId != default && userByPhone.TelegramUserId != message.Chat.Id)
+        {
+            failMsg = "It is not your contact!";
+            _log.Info($"There is no phone number! for {message.Contact.UserId}");
+            await ReturnAnswer(update, failMsg);
+            return;
+        }
+
+        userByPhone.TelegramUserId = message.Contact?.UserId;
+        _unitOfWork.GetRepository<AppUser>().Update(userByPhone);
+        await _unitOfWork.SaveChangesAsync();
+        _log.Info($"Store telegram_id {userByPhone.TelegramUserId} for user {userByPhone.Name} ");
     }
 
     public async Task Idle(Update update)
@@ -142,4 +128,20 @@ public class BotService : IBot
             await NeedContact(update);
         }
     }
+
+    private async Task ReturnAnswer(Update update, string failMsg)
+    {
+        var buttons = new[]
+        {
+            new KeyboardButton("My phone number") {RequestContact = true},
+            "Cancel"
+        };
+        var fulltext = $"{failMsg}\r";
+        await _botClient.SendTextMessageAsync(
+            chatId: update.Message!.Chat.Id,
+            text: fulltext,
+            replyMarkup: new ReplyKeyboardMarkup(buttons)
+        );
+    }
+
 }

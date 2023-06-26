@@ -31,6 +31,6 @@ public class TelegramMessage
     public string? Additional { get; set; }
 
     [Required]
-    [Column(name: "create_date", TypeName = "timestamp without time zone")]
+    [Column(name: "create_date", TypeName = "timestamp with time zone")]
     public DateTime CreateDate { get; set; } = DateTime.UtcNow;
 }
