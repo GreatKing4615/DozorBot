@@ -108,6 +108,7 @@ public class BotService : IBot
         _unitOfWork.GetRepository<AppUser>().Update(userByPhone);
         await _unitOfWork.SaveChangesAsync();
         _log.Info($"Store telegram_id {userByPhone.TelegramUserId} for user {userByPhone.Name} ");
+        await Idle(update);
     }
 
     public async Task Idle(Update update)
@@ -119,7 +120,7 @@ public class BotService : IBot
             include: i => i.Include(x => x.LegacyUser));
         if (user != null)
         {
-            await _botClient.SendTextMessageAsync(chatId, "Your contact info was stored, just wait for notifications!");
+            await _botClient.SendTextMessageAsync(chatId, Constants.CONTACT_STORED, replyMarkup: new ReplyKeyboardRemove());
             _log.Info($"Contact already exists for user {user.TelegramUserId}");
         }
         else
